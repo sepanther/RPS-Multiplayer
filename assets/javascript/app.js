@@ -14,6 +14,7 @@ var config = {
 //Initialize variables
 var database = firebase.database();
 var players = database.ref("/players");
+var chatRef = database.ref("/chats")
 var connectedRef = database.ref(".info/connected");
 var con;
 var playerCount = 0;
@@ -21,6 +22,8 @@ var choices = ["Rock", "Paper", "Scissors"]
 var playerObj;
 var playerID;
 var attack = "attack";
+var name;
+var oppName;
 var oppAttack;
 var oppPlayerID;
 var wins=0;
@@ -30,18 +33,25 @@ var oppWins=0;
 
 //Function to load the game
 function loadGame() {
-    var startBtn = $("<button>");
+    $("#chatroom").hide();
+    $("#chats").empty();
+    var nameForm = $('<form>')
+    var startBtn = $('<input>');
+    $(startBtn).attr('type', 'submit')
     console.log(startBtn)
     startBtn.addClass("btn btn-info start-button");
     startBtn.text("Start");
     var name= $("<input>");
     $(name).attr('id', 'name-input');
-    $("#content").append(name);
-    $("#content").append(startBtn);
+    $(name).attr('placeholder', 'Type your name')
+    nameForm.append(name);
+    nameForm.append(startBtn)
+    $("#content").append(nameForm);
 }
 
 //Function to choose your attack
 function chooseAttack() {
+    updateScore();
     database.ref().child(playerID).set({
         name:name,
         attack:"attack",
@@ -49,14 +59,26 @@ function chooseAttack() {
     })
     $("#content").empty();
     $("#content").html("Choose your attack!<br>")
+    var buttonCont = $("<div>")
     for (i=0; i<choices.length; i++) {
         var button = $("<button>")
         button.val(choices[i]);
         button.text(choices[i]);
         button.addClass("btn btn-info attack")
-        $("#content").append(button);
+        buttonCont.append(button);
     };
+    $("#content").append(buttonCont);
     
+}
+
+function updateScore() {
+    $("#scoreboard").empty();
+    var myScore = $("<div>");
+    myScore.html(name + "'s Score: " + wins);
+    var oppScore = $("<div>");
+    oppScore.html(oppName + "'s Score: " + oppWins);
+    $("#scoreboard").append(myScore);
+    $("#scoreboard").append(oppScore)
 }
 
 //On choosing of attack, send data to Firebase and update screen
@@ -64,7 +86,8 @@ $(document.body).on("click", ".attack", function() {
     attack = $(this).val();
     database.ref().child(playerID).set({
         name:name,
-        attack:attack
+        attack:attack,
+        wins:wins
     })
 })
 
@@ -90,42 +113,43 @@ function addPlayer() {
     }
     database.ref().child(playerID).set({
         name:name,
-        attack:attack
+        attack:attack,
+        wins:wins
     })
     if (playerCount < 2) {
         waitingRoom();
     }
     else {
+        $("#chats").empty();
+        $("#chatroom").show();
         chooseAttack();
     }
 }
 
 //When player count is 2, move on to gameplay
 database.ref().on("value", function(snap) {
-    
+    oppName = snap.val()[oppPlayerID].name
     try{
         oppAttack = snap.val()[oppPlayerID].attack;
     }catch(e){
         console.log("no attack yet")
     }
     if (snap.val()[oppPlayerID].attack !== "attack" && snap.val()[playerID].attack !== "attack") {
-        console.log("evaluate game");
-        console.log("my attack: " + attack)
-        console.log("opponent attack: " + oppAttack)
-        console.log(attack==oppAttack);
         evaluateGame();
     }
     else if (snap.val()[oppPlayerID].attack === "attack" && snap.val()[playerID].attack !== "attack") {
         console.log("waiting for opponent to choose attack")
     }
     else if (playerCount === 2) {
+        $("chats").empty();
+        $("#chatroom").show();
         chooseAttack();
     }
+    
 })
 
 //Funtion to evalulate game
 function evaluateGame() {
-    console.log("evaluating...")
     $("#content").empty();
     if (attack==oppAttack) {
         console.log("in if statement")
@@ -134,6 +158,7 @@ function evaluateGame() {
     }
     else if (attack=="Rock" && oppAttack=="Paper") {
         $("#content").html("Opponent wins! You suck")
+        oppWins++
     }
     else if (attack=="Rock" && oppAttack=="Scissors") {
         $("#content").html("You won!")
@@ -142,6 +167,7 @@ function evaluateGame() {
     }
     else if (attack=="Paper" && oppAttack=="Scissors") {
         $("#content").html("Opponent wins! You suck")
+        oppWins++
     }
     else if (attack=="Paper" && oppAttack=="Rock") {
         $("#content").html("You won!")
@@ -150,12 +176,14 @@ function evaluateGame() {
     }
     else if (attack=="Scissors" && oppAttack=="Rock") {
         $("#content").html("Opponent wins! You suck")
+        oppWins++
     }
     else if (attack=="Scissors" && oppAttack=="Paper") {
         $("#content").html("You won!")
         wins++
         console.log("wins: " + wins);
     }
+    updateScore();
     setTimeout(chooseAttack, 3000)
 
 
@@ -167,6 +195,30 @@ function waitingRoom() {
     $("#content").text("Waiting for an opponent");
 }
 
+//When user submits a chat
+$("#chat-submit").on("click", function(event) {
+    event.preventDefault();
+    var message = {
+        user: name,
+        chat: $("#chat-input").val()
+    }
+    $("#chat-input").val("")
+    chatRef.push(message)
+})
+
+//Function for actually adding chats to DOM
+function addMessage(x) {
+    var sender = x.user;
+    var senderElement = $("<strong>").text(sender + ": ")
+    var message = x.chat;
+    var messageElement = $("<li>").text(message).prepend(senderElement);
+    $("#chats").append(messageElement)
+}
+
+//Listening for new chats added to Firebase
+chatRef.on("child_added", function(snap) {
+    addMessage(snap.val())
+})
 
 loadGame();
 
@@ -180,6 +232,10 @@ database.ref().on("value", function(snap) {
     if (playerObj !== undefined) {
         playerCount = Object.keys(playerObj).length
     }
+    if (playerCount == 0) {
+        chatRef.remove();
+        $("#chats").empty();
+      }
     console.log("players: " + playerCount)
 }, function(errorObject) {
     console.log("The read failed: " + errorObject.code);

@@ -9,9 +9,25 @@
 </head>
 <body>
     <header>
-        <div class="jumbotron text-center">Rock, Paper, Scissors</div>
+        <div class="jumbotron text-center display-4">Rock, Paper, Scissors</div>
     </header>
-    <div id=content></div>
+    <div class=row>
+        <div class=col-6>
+            <div id=content></div>
+            <div id=scoreboard></div>
+        </div>
+        <div class=col-6>
+            <div id=chatroom class=border-info>
+                <div id=chatbox>
+                    <ul id=chats></ul>
+                </div>
+                <form>
+                    <input type=text id=chat-input placeholder="Type a message..." required maxlength=60>
+                    <input type=submit id=chat-submit class="btn btn-info" value="Send">
+                </form>
+            </div>
+        </div>
+    </div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/5.5.8/firebase.js"></script>
